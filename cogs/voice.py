@@ -42,8 +42,8 @@ youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=yt_a
 executable_path = "ffmpeg"
 # executable_path = "bin\\ffmpeg.exe"
 
-queue = []  # [music_url, title, yt_url, loop?]
-thumbnail = ""
+queue = []  # {music_url, title, yt_url, loop?}
+
 
 def search_yt(url: str):
     global now_searing_url, now_searing_title
@@ -85,9 +85,9 @@ class Voice(commands.Cog):
     async def next(self, channel: discord.TextChannel):
         # print("next", len(queue))
 
-        if queue[0][3]: # 循環播放
-            queue[0][0:3] = search_yt(queue[0][2])  # 重抓避免失效
-            self.vc.play(discord.FFmpegOpusAudio(queue[0][0], **FFMPEG_OPTIONS, executable=executable_path),
+        if queue[0]["loop"]: # 循環播放
+            queue[0]["music_url"], queue[0]["title"], queue[0]["yt_url"] = search_yt(queue[0]["yt_url"])  # 重抓避免失效
+            self.vc.play(discord.FFmpegOpusAudio(queue[0]["music_url"], **FFMPEG_OPTIONS, executable=executable_path),
                          after=lambda e: asyncio.run_coroutine_threadsafe(self.next(channel), self.bot.loop))
             return
 
@@ -104,13 +104,13 @@ class Voice(commands.Cog):
             return
 
         # print(queue[0][0])
-        queue[0][0:3] = search_yt(queue[0][2])  # 重抓避免失效
+        queue[0]["music_url"], queue[0]["title"], queue[0]["yt_url"] = search_yt(queue[0]["yt_url"])  # 重抓避免失效
         # print(queue[0][0])
 
-        self.vc.play(discord.FFmpegOpusAudio(queue[0][0], **FFMPEG_OPTIONS, executable=executable_path),
+        self.vc.play(discord.FFmpegOpusAudio(queue[0]["music_url"], **FFMPEG_OPTIONS, executable=executable_path),
                      after=lambda e: asyncio.run_coroutine_threadsafe(self.next(channel), self.bot.loop))
-        await channel.send(f"現在播放： [{queue[0][1]}]({queue[0][2]})")
-        await self.bot.change_presence(status=discord.Status.idle, activity=discord.Activity(type=discord.ActivityType.listening, name=queue[0][1]))
+        await channel.send(f"現在播放： [{queue[0]['title']}]({queue[0]['yt_url']})")
+        await self.bot.change_presence(status=discord.Status.idle, activity=discord.Activity(type=discord.ActivityType.listening, name=queue[0]["title"]))
 
     @app_commands.command(name="唱歌", description="加入語音頻道，將歌曲加到隊列")
     @app_commands.describe(關鍵字或網址="關鍵字或網址", 循環播放="重複播放這首歌")
@@ -124,9 +124,10 @@ class Voice(commands.Cog):
         print("try to play: "+關鍵字或網址)
         # print(os.listdir("."))
         # print(os.listdir("bin/"))
+        await interaction.response.defer()
 
         if not interaction.user.voice:
-            await interaction.response.send_message("你先進語音")
+            await interaction.followup.send("你先進語音")
             return
 
         if self.vc is None:
@@ -134,16 +135,15 @@ class Voice(commands.Cog):
                 self.vc = await interaction.user.voice.channel.connect()
                 # await interaction.channel.send(f"我來了")
             except discord.ClientException as e:
-                await interaction.response.send_message(f"無法連接到語音頻道：{e}\n @Liquan 修一下")
+                await interaction.followup.send(f"無法連接到語音頻道：{e}\n @Liquan 修一下")
                 return
             except Exception as e:
-                await interaction.response.send_message(f"發生未知錯誤：{e}\n @Liquan 修一下")
+                await interaction.followup.send(f"發生未知錯誤：{e}\n @Liquan 修一下")
                 return
 
         if self.owner is None:
             self.owner = interaction.user
         # await interaction.channel.send("123")
-        await interaction.response.defer()
         m_url, m_title, yt_url = search_yt(關鍵字或網址)
         # await interaction.channel.send(m_url)
         print("m_title: ", m_title)
@@ -154,24 +154,24 @@ class Voice(commands.Cog):
 
         if len(queue) == 0:
             
-            queue.append([m_url, m_title, yt_url, 循環播放.value])
+            queue.append({"music_url": m_url, "title": m_title, "yt_url": yt_url, "loop": 循環播放.value})
             try:
-                self.vc.play(discord.FFmpegOpusAudio(queue[0][0], **FFMPEG_OPTIONS, executable=executable_path),
+                self.vc.play(discord.FFmpegOpusAudio(queue[0]["music_url"], **FFMPEG_OPTIONS, executable=executable_path),
                              after=lambda e: asyncio.run_coroutine_threadsafe(self.next(interaction.channel), self.bot.loop))#asyncio.run(self.next(interaction.channel))
             except Exception as e:
                 await interaction.followup.send(e)
                 return
 
             if 循環播放.value:
-                await interaction.followup.send(f"好的，循環播放 [{queue[0][1]}]({queue[0][2]})")
+                await interaction.followup.send(f"好的，循環播放 [{queue[0]['title']}]({queue[0]['yt_url']})")
             else:
-                await interaction.followup.send(f"好的，播放 [{queue[0][1]}]({queue[0][2]})")
+                await interaction.followup.send(f"好的，播放 [{queue[0]['title']}]({queue[0]['yt_url']})")
 
-            await self.bot.change_presence(status=discord.Status.idle, activity=discord.Activity(type=discord.ActivityType.listening, name=queue[0][1]))
+            await self.bot.change_presence(status=discord.Status.idle, activity=discord.Activity(type=discord.ActivityType.listening, name=queue[0]['title']))
             return
 
         # print(m_title)
-        queue.append([m_url, m_title, yt_url, 循環播放.value])
+        queue.append({"music_url": m_url, "title": m_title, "yt_url": yt_url, "loop": 循環播放.value})
         # await interaction.response.send_message(f"加入隊列成功： [{m_title}]({yt_url})")   # ??
         await interaction.followup.send(f"加入隊列成功： [{m_title}]({yt_url})")
 
@@ -209,7 +209,7 @@ class Voice(commands.Cog):
         #     await interaction.response.send_message("你目前不能控制Tourist唷！")
         #     return
 
-        queue[0][3] = False
+        queue[0]["loop"] = False
         self.vc.stop()
         # queue.pop(0)
 
@@ -227,20 +227,22 @@ class Voice(commands.Cog):
     @app_commands.command(name="目前隊列", description="查看目前歌曲")
     async def see(self, interaction: discord.Interaction):
 
+        await interaction.response.defer()
+
         if len(queue) == 0:
-            await interaction.response.send_message("目前隊列是空的！")
+            await interaction.followup.send("目前隊列是空的！")
             return
 
         msg = "- 目前隊列：\n" + "```"
         counter = 1
         for s in queue:
             msg += f"{counter:>2}.  "
-            if s[3]:
+            if s["loop"]:
                 msg += "(循環播放)"
-            msg += f"{s[1]}\n"
+            msg += f"{s['title']}\n"
             counter += 1
         msg += "```"
-        await interaction.response.send_message(msg)
+        await interaction.followup.send(msg)
 
 
 async def setup(bot: commands.Bot):

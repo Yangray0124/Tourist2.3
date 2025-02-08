@@ -1,6 +1,5 @@
 import discord
 import time
-import cv2
 from discord.ext import commands
 from discord.ext import tasks
 import requests
@@ -91,12 +90,13 @@ class Chat(commands.Cog):
     async def hello(self, interaction: discord.Interaction):
         await interaction.response.send_message("你好")
 
-    @app_commands.command(name="版本", description="Tourist2.1")
+    @app_commands.command(name="版本", description="Tourist2.2")
     async def version(self, interaction: discord.Interaction):
-        await interaction.response.send_message(">>> 版本： **Tourist2.1**\n"
-                                                "更新日期： 2025/1/30\n"
-                                                "才藝： 智能聊天、cf查榜、唱歌\n"
-                                                "贊助商： 郭老師贊助機器！\n")
+        await interaction.response.send_message(">>> 版本： **Tourist2.2**\n"
+                                                "更新日期： 2025/2/8\n"
+                                                "才藝： 智能聊天、cf功能、唱歌\n"
+                                                "贊助商： 郭老師贊助機器！\n"
+                                                "OpenSource： https://github.com/Yangray0124/Tourist2.2.git")
 
     @tasks.loop(seconds=3)
     async def cf_clock(self):
@@ -296,6 +296,25 @@ class Chat(commands.Cog):
                 verdict = "Accepted"
             await channel.send(f" **{ID}** 提交了 **{l[i]['problem_idx']} - {l[i]['problem_name']}** ，結果是 ***{verdict.title()}*** ！")
 
+    async def cf_get_random_problem(self, interaction: discord.Interaction, params: dict):
+        l, r = params["L"], params["R"]
+        print(l, r)
+        info = requests.get("https://codeforces.com/api/problemset.problems")
+        if info.status_code != 200:
+            await interaction.followup.send("cf好像出了問題！")
+            return
+        problems = info.json()["result"]["problems"]
+        ls = []
+        for p in problems:
+            if "rating" in p and l <= p["rating"] <= r:
+                ls.append({"contest_id": p["contestId"], "idx": p["index"], "name": p["name"]})
+
+        if len(ls) == 0:
+            await interaction.followup.send("找不到符合難度的題目！")
+            return
+        rand = random.randint(0, len(ls)-1)
+        await interaction.followup.send(f"好的， [ **{ls[rand]['name']}** ](https://codeforces.com/contest/{ls[rand]['contest_id']}/problem/{ls[rand]['idx']})")
+
     @app_commands.command(name="cf", description="查詢CodeForces的...")
     @app_commands.describe(選擇="選擇功能")
     @app_commands.choices(
@@ -349,6 +368,14 @@ class Chat(commands.Cog):
                 msg += ", "
             msg += f"**{cf_focus_list[i]['ID']}**"
         await interaction.followup.send(msg)
+
+    @app_commands.command(name="隨機一題", description="隨機一題CodeForces題目！")
+    @app_commands.describe(l="最低難度", r="最高難度")
+    async def cf_random_problem(self, interaction: discord.Interaction, l: int, r:int):
+        if l > r:
+            l, r = r, l
+        await interaction.response.defer()
+        cf_queue.append({"function": self.cf_get_random_problem, "interaction": interaction, "params": {"L": l, "R": r}})
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
