@@ -112,7 +112,7 @@ class Chat(commands.Cog):
     async def cf_add_focus(self):
         del_tmp = []
         for p in cf_focus_list:
-            print(p["ID"])
+            # print(p["ID"])
             cf_queue.append({"function": self.cf_focus_update,
                              "interaction": p["channel"],
                              "params": {"ID": p["ID"]} })
@@ -297,8 +297,9 @@ class Chat(commands.Cog):
             await channel.send(f" **{ID}** 提交了 **{l[i]['problem_idx']} - {l[i]['problem_name']}** ，結果是 ***{verdict.title()}*** ！")
 
     async def cf_get_random_problem(self, interaction: discord.Interaction, params: dict):
+        print("cf_get_random_problem")
         l, r = params["L"], params["R"]
-        print(l, r)
+        # print(l, r)
         info = requests.get("https://codeforces.com/api/problemset.problems")
         if info.status_code != 200:
             await interaction.followup.send("cf好像出了問題！")
@@ -443,16 +444,22 @@ class Chat(commands.Cog):
                 else:
                     L = message.content.find(">") + 2
                     msg = message.content[L:]
+                    
                     if check(msg.replace(' ', '')):
-                        self.js["contents"][0]["parts"][0]["text"] = msg
+                        js["contents"][0]["parts"][0]["text"] = msg
                     else:
-                        self.js["contents"][0]["parts"][0]["text"] = "#zh-tw" + msg
-                    print("text: ", self.js["contents"][0]["parts"][0]["text"])
+                        js["contents"][0]["parts"][0]["text"] = "#zh-tw " + msg
+
+                    print("text: ", js["contents"][0]["parts"][0]["text"])
                     google = requests.post(
-                        f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={gemini_api_key}",
+                        f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key={gemini_api_key}",
                         headers=hd, json=js)
-                    await message.reply(
-                        google.json()["candidates"][0]["content"]["parts"][0]["text"].replace("Gemini", "Tourist"))
+                    if google.status_code == 200:
+                        await message.reply(google.json()["candidates"][0]["content"]["parts"][0]["text"].replace("Gemini", "Tourist"))
+                    else:
+                        await message.reply("Tourist壞掉了，請檢查模型的版本")
+                        print("Tourist壞掉了！")
+                        print(f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_api_key}")
 
 
 async def setup(bot: commands.Bot):

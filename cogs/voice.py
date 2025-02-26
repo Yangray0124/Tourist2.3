@@ -46,7 +46,6 @@ queue = []  # {music_url, title, yt_url, loop?}
 
 
 def search_yt(url: str):
-    global now_searing_url, now_searing_title
 
     if not url.startswith("http"):
         res = youtube.search().list(
