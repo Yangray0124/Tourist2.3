@@ -1,3 +1,5 @@
+import base64
+
 import discord
 import time
 from discord.ext import commands
@@ -9,6 +11,7 @@ from discord.app_commands import Choice
 from bs4 import BeautifulSoup
 from typing import Optional
 from keys import gemini_api_key
+import shutil
 
 hd = {'Content-Type': 'application/json'}
 js = {
@@ -48,6 +51,49 @@ js = {
         "maxOutputTokens": "1024",
     }
 }
+js_image = {
+    "contents": [
+        {
+            "parts": [
+                {
+                    "inline_data": {
+                        "mime_type": "image/jpg",
+                        "data": ""
+                    }
+                },
+                {
+                    "text": "pikachu"
+                }
+            ],
+            "role": "user"
+        }
+    ],
+    "safetySettings": [
+        {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "BLOCK_NONE"
+        },
+        {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "BLOCK_NONE"
+        },
+        {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_NONE"
+        },
+        {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_NONE"
+        }
+    ],
+    "generationConfig": {
+        "temperature": "0.8",
+        "topP": "0.95",
+        "topK": "50",
+        "candidateCount": "1",
+        "maxOutputTokens": "8192",
+    }
+}
 cf_focus_CD = 20
 
 
@@ -68,6 +114,12 @@ def get_hour_and_min(sec):
         return f"{h} hr"
     else:
         return f"{h} hr {m} min"
+
+
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+        return encoded_string
 
 
 cf_queue = []  # {function, interaction, params{} }
@@ -92,8 +144,8 @@ class Chat(commands.Cog):
 
     @app_commands.command(name="版本", description="Tourist2.2")
     async def version(self, interaction: discord.Interaction):
-        await interaction.response.send_message(">>> 版本： **Tourist2.2**\n"
-                                                "更新日期： 2025/2/8\n"
+        await interaction.response.send_message(">>> 版本： **Tourist2.3**\n"
+                                                "更新日期： 2025/3/7\n"
                                                 "才藝： 智能聊天、cf功能、唱歌\n"
                                                 "贊助商： 郭老師贊助機器！\n"
                                                 "OpenSource： https://github.com/Yangray0124/Tourist2.2.git")
@@ -316,6 +368,21 @@ class Chat(commands.Cog):
         rand = random.randint(0, len(ls)-1)
         await interaction.followup.send(f"好的， [ **{ls[rand]['name']}** ](https://codeforces.com/contest/{ls[rand]['contest_id']}/problem/{ls[rand]['idx']})")
 
+    async def cut_and_reply(self, message:discord.Message, res:str):
+        msc = message.channel
+        replies = []
+        tmpL = 0
+        for i in range(len(res)):
+            if res[i] == '\n' and i - tmpL >= 1500:
+                replies.append(res[tmpL:i + 1])
+                tmpL = i + 1
+        if tmpL < len(res) - 1:
+            replies.append(res[tmpL:len(res)])
+        await message.reply(replies[0])
+        for i in range(1, len(replies)):
+            await msc.send(replies[i])
+        print("cut:", f"len={len(replies)}")
+
     @app_commands.command(name="cf", description="查詢CodeForces的...")
     @app_commands.describe(選擇="選擇功能")
     @app_commands.choices(
@@ -407,7 +474,7 @@ class Chat(commands.Cog):
             await msc.send(file=discord.File("img/fork.jpg"))
 
         if f"<@{self.bot.application_id}>" in message.content:
-            if message.content.strip() == f"<@{self.bot.application_id}>":
+            if message.content.strip() == f"<@{self.bot.application_id}>" and len(message.attachments) == 0:
                 await message.reply("怎樣")
 
             elif "是誰" in message.content or "你誰" in message.content:
@@ -439,6 +506,33 @@ class Chat(commands.Cog):
                     await message.reply("不要")
 
             else:
+                if len(message.attachments)>0:
+                    url = message.attachments[0].url
+                    image = requests.get(url, stream=True)
+                    try:
+                        with open("pikachu.jpg", "wb") as out:
+                            shutil.copyfileobj(image.raw, out)
+                        print("pikachu.jpg saved")
+                        L = message.content.find(">") + 2
+                        msg = message.content[L:]
+                        js_image["contents"][0]["parts"][1]["text"] = msg
+                        print("text(with image): ", js_image["contents"][0]["parts"][1]["text"])
+                        js_image["contents"][0]["parts"][0]["inline_data"]["data"] = encode_image("pikachu.jpg")
+                        google = requests.post(
+                            f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={gemini_api_key}",
+                            headers=hd, json=js_image)
+
+                        if google.status_code == 200:
+                            await self.cut_and_reply(message, google.json()["candidates"][0]["content"]["parts"][0]["text"].replace("Gemini", "Tourist"))
+
+                        else:
+                            await message.reply("Tourist壞掉了，請檢查模型的版本")
+                            print("Tourist壞掉了！")
+                            print(f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_api_key}")
+                        return
+                    except Exception as e:
+                        print("failed:", e)
+
                 if random.random() > 0.99:
                     await message.reply("聽不懂辣")
                 else:
@@ -455,7 +549,8 @@ class Chat(commands.Cog):
                         f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key={gemini_api_key}",
                         headers=hd, json=js)
                     if google.status_code == 200:
-                        await message.reply(google.json()["candidates"][0]["content"]["parts"][0]["text"].replace("Gemini", "Tourist"))
+                        await self.cut_and_reply(message, google.json()["candidates"][0]["content"]["parts"][0]["text"].replace("Gemini", "Tourist"))
+
                     else:
                         await message.reply("Tourist壞掉了，請檢查模型的版本")
                         print("Tourist壞掉了！")
