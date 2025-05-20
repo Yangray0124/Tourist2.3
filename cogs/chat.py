@@ -94,6 +94,7 @@ js_image = {
         "maxOutputTokens": "8192",
     }
 }
+prompt = "請用繁體中文回答！\n\n"
 cf_focus_CD = 20
 
 gemini_model = "v1/models/gemini-1.5-flash"
@@ -522,7 +523,7 @@ class Chat(commands.Cog):
                         print("pikachu.jpg saved")
                         L = message.content.find(">") + 2
                         msg = message.content[L:]
-                        js_image["contents"][0]["parts"][1]["text"] = "請用繁體中文回答！\n\n" + msg
+                        js_image["contents"][0]["parts"][1]["text"] = prompt + msg
                         print("text(with image): ", js_image["contents"][0]["parts"][1]["text"])
                         js_image["contents"][0]["parts"][0]["inline_data"]["data"] = encode_image("pikachu.jpg")
                         google = requests.post(
@@ -548,7 +549,7 @@ class Chat(commands.Cog):
                     L = message.content.find(">") + 2
                     msg = message.content[L:]
                     
-                    js["contents"][0]["parts"][0]["text"] = "請用繁體中文回答！\n\n" + msg
+                    js["contents"][0]["parts"][0]["text"] = prompt + msg
 
                     print("text: ", js["contents"][0]["parts"][0]["text"])
                     google = requests.post(
