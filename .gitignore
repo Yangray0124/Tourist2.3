@@ -1,0 +1,7 @@
+keys.py
+test.py
+
+.idea/
+__pycache__/
+bin/
+cogs/__pycache__/

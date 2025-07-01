@@ -12,7 +12,6 @@ from typing import Optional
 from discord.app_commands import Choice
 from bs4 import BeautifulSoup
 from googleapiclient.discovery import build  # google-api-python-client
-from bot import get_act
 from keys import yt_api_key
 
 yt_dlp_options = {
@@ -43,6 +42,12 @@ executable_path = "ffmpeg"
 # executable_path = "bin\\ffmpeg.exe"
 
 queue = []  # {music_url, title, yt_url, loop?}
+
+def get_act():
+    pen = open("status.txt", 'r', encoding="UTF-8")
+    game = pen.readline()
+    pen.close()
+    return game
 
 
 def search_yt(url: str):
