@@ -99,16 +99,16 @@ class Pikachugame(commands.Cog):
             r[pos] = True
 
             if pos == 0:
-                y = 990 - 30*(self.people_count()-1)
                 players_now = [player_now for player_now in players if player_now[2] == pos]
+                y = 990 - 30*(len(players_now)-1)
                 for player_now in players_now:
                     avatar = cv2.imread(f"img/user_avatar/{player_now[1]}.png", cv2.IMREAD_UNCHANGED)
                     mp = render(mp, avatar, 20, y)
                     y += 30
             else:
                 (x, y) = pos_xy[pos]
-                x += 20*(self.people_count()-1)
                 players_now = [player_now for player_now in players if player_now[2] == pos]
+                x += 20*(len(players_now)-1)
                 for player_now in players_now:
                     avatar = cv2.imread(f"img/user_avatar/{player_now[1]}.png", cv2.IMREAD_UNCHANGED)
                     mp = render(mp, avatar, x, y)

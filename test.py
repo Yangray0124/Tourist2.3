@@ -10,7 +10,7 @@ print(type(map))
 fh, fw = toge.shape[:2]
 # 20, 120, 300, ..., 1650   => intv = 170
 # 990, .., 140  => intv = 106.25 = 106
-x, y = 1650, 140+106*6
+x, y = 1650, 990
 
 roi = map[y:(y+fh), x:(x+fw)]
 
