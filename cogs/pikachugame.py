@@ -54,6 +54,18 @@ def render(bottom: numpy.ndarray, top: numpy.ndarray, x, y):
     return bottom
 
 
+def turn_now():
+    with open('pika_playing.txt', 'r') as f:
+        now = f.read()
+    now = int(now)
+    return now
+
+
+def turn_write(strr: str):
+    with open('pika_playing.txt', 'w') as f:
+        f.write(strr)
+
+
 class Pikachugame(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
@@ -116,7 +128,6 @@ class Pikachugame(commands.Cog):
 
         cv2.imwrite("img/newmap.png", mp)
         await channel.send(file=discord.File("img/newmap.png"))
-
 
     async def gogo(self, channel, player, des):
         if events[des] == "Lapras":
@@ -313,12 +324,11 @@ class Pikachugame(commands.Cog):
 
                 cv2.imwrite(f"img/user_avatar/{name}.png", img)
 
-        with open('pika_playing.txt', 'r') as f:
-            playing = f.read()
-
-        if playing != "0":
-            await interaction.followup.send("遊戲已經開始了唷！")
-            return
+        # with open('pika_playing.txt', 'r') as f:
+        #     playing = f.read()
+        # if playing != "0":
+        #     await interaction.followup.send("遊戲已經開始了唷！")
+        #     return
 
         count = self.people_count()
         if count >= 6:
@@ -338,16 +348,14 @@ class Pikachugame(commands.Cog):
         print(name, "加入拯救皮卡丘！")
         self.con.commit()
         await interaction.followup.send(f"{interaction.user.mention} 加入拯救皮卡丘！")
+        await self.show_map(interaction.channel)
 
     @app_commands.command(name="開始_拯救皮卡丘", description="開始遊戲")
     async def pika_start(self, interaction: discord.Interaction):
 
         await interaction.response.defer()
 
-        with open('pika_playing.txt', 'r') as f:
-            playing = f.read()
-
-        if playing != "0":
+        if turn_now() != 0:
             await interaction.followup.send("遊戲已經開始了唷！")
             return
 
@@ -355,8 +363,7 @@ class Pikachugame(commands.Cog):
             await interaction.followup.send("人數還不夠唷！")
             return
 
-        with open('pika_playing.txt', 'w') as f:
-            f.write("1")
+        turn_write("1")
 
         await interaction.followup.send("遊戲開始！")
         try:
@@ -391,15 +398,11 @@ class Pikachugame(commands.Cog):
 
         await interaction.response.defer()
 
-        with open('pika_playing.txt', 'r') as f:
-            now = f.read()
-        now = int(now)
-
-        if now == "0":
+        if turn_now() == 0:
             await interaction.followup.send("遊戲還沒開始唷！")
             return
 
-        player_now = self.find_player_by_turn(now)  # id, name, pos, turn, sleep, boost
+        player_now = self.find_player_by_turn(turn_now())  # id, name, pos, turn, sleep, boost
         # print(player_now)
 
         if player_now[0] != interaction.user.id:
@@ -429,6 +432,8 @@ class Pikachugame(commands.Cog):
         else:
             await self.gogo(interaction.channel, player_now, des)
 
+        now = turn_now()
+
         while True:
             now += 1
             if now > self.people_count():
@@ -443,8 +448,7 @@ class Pikachugame(commands.Cog):
                 self.con.commit()
             else:
                 await interaction.channel.send(f"輪到 <@{player_now[0]}> 了！")
-                with open('pika_playing.txt', 'w') as f:
-                    f.write(str(now))
+                turn_write(str(now))
                 return
 
     @app_commands.command(name="查看_拯救皮卡丘", description="目前所有玩家狀態")
@@ -452,9 +456,7 @@ class Pikachugame(commands.Cog):
 
         await interaction.response.defer()
 
-        with open('pika_playing.txt', 'r') as f:
-            now = f.read()
-        now = int(now)
+        now = turn_now()
 
         if now == 0:
             await interaction.followup.send("遊戲還沒開始唷！")
@@ -488,6 +490,43 @@ class Pikachugame(commands.Cog):
         await interaction.channel.send(msg)
         await interaction.channel.send("目前地圖：")
         await self.show_map(interaction.channel)
+
+    @app_commands.command(name="離開_拯救皮卡丘", description="離開遊戲")
+    async def pika_leave(self, interaction: discord.Interaction):
+
+        await interaction.response.defer()
+        id = interaction.user.id
+
+        self.cursor.execute("SELECT id, name, pos, turn, sleep, boost FROM users WHERE id = ?", (id,))
+        player = self.cursor.fetchone()
+        print(player)
+        if player is None:
+            await interaction.followup.send(f"{interaction.user.mention} 不在遊戲裡唷！")
+            return
+
+        turn = player[3]
+        count = self.people_count()
+
+        try:
+            for i in range(turn, self.people_count()+1):
+                p = self.find_player_by_turn(i)
+                self.cursor.execute("UPDATE users "
+                                    "SET turn = ? "
+                                    "WHERE turn = ?;", (i-1, i))
+                self.con.commit()
+
+                self.cursor.execute("DELETE FROM users WHERE id = ?;", (player[0],))
+                self.con.commit()
+
+                await interaction.followup.send(f"<@{player[0]}> 離開遊戲！")
+
+                now = turn_now()
+
+                if now >= turn:
+                    turn_write(str(now-1))
+
+        except Exception as e:
+            await interaction.followup.send(e)
 
     @app_commands.command(name="拯救皮卡丘_遊戲介紹", description="玩法說明")
     async def pika_intro(self, interaction: discord.Interaction):
