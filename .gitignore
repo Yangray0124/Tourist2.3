@@ -5,3 +5,4 @@ test.py
 __pycache__/
 bin/
 cogs/__pycache__/
+img/user_avatar/
