@@ -173,8 +173,11 @@ class Chat(commands.Cog):
                              "interaction": p["channel"],
                              "params": {"ID": p["ID"]} })
             p["remain"] -= cf_focus_CD
+
             if p["remain"] <= 0:
-                print(f"{p['ID']} deleted")
+                # print(f"{p['ID']} deleted")
+                channel = p["channel"]
+                await channel.send(f"**{p['ID']}** 關注結束")
                 del_tmp.append(p)
         for p in del_tmp:
             cf_focus_list.remove(p)
@@ -426,7 +429,7 @@ class Chat(commands.Cog):
     async def cf_focus(self, interaction: discord.Interaction, id: str, 時間: Choice[int]):
         # print("append")
         await interaction.response.defer()
-        cf_queue.append({"function": self.cf_focus_setup, "interaction": interaction, "params": {"ID": id, "sec": 時間.value}})
+        cf_queue.append({"function": self.cf_focus_setup, "interaction": interaction, "params": {"ID": id.lower(), "sec": 時間.value}})
 
     @app_commands.command(name="關注列表", description="目前追蹤的列表")
     async def cf_focus_list(self, interaction: discord.Interaction):

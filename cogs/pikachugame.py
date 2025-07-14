@@ -491,7 +491,6 @@ class Pikachugame(commands.Cog):
         channel = interaction.channel
 
         await self.create_table(channel)
-
         now = turn_now(channel)
 
         if now == 0:
@@ -538,7 +537,7 @@ class Pikachugame(commands.Cog):
 
         self.cursor.execute(f"SELECT id, name, pos, turn, sleep, boost FROM channel_{channel.id} WHERE id = ?", (id,))
         player = self.cursor.fetchone()
-        print(player)
+        # print(player)
         if player is None:
             await interaction.followup.send(f"{interaction.user.mention} 不在遊戲裡唷！")
             return
@@ -568,7 +567,7 @@ class Pikachugame(commands.Cog):
             await interaction.followup.send(e)
             return
 
-        if self.people_count(channel) == 0:
+        if self.people_count(channel) == 0 and turn_now(channel) != 0:
             await channel.send("所有人都離開遊戲了，遊戲結束！")
             turn_write(channel, "0")
 
